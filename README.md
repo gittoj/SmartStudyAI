@@ -1,0 +1,2 @@
+# SmartStudyAI
+Smart Study AI
