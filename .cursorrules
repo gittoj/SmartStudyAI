@@ -1,0 +1,48 @@
+# ✏️ YOUR TASK: Write 10 specific, actionable rules for .cursorrules
+# Each rule should be one sentence. Aim for clarity over cleverness.
+
+my_cursorrules = """
+# .cursorrules
+# Project: SmartStudy AI
+# Stack: Next.js 14 + FastAPI + PostgreSQL + OpenAI API
+
+1. Use TypeScript with strict typing in all frontend files, define interfaces for API requests and responses, and avoid using any.
+
+2. Keep React components focused on a single responsibility and split components larger than 200 lines into smaller reusable components.
+
+3. Handle all frontend and backend errors explicitly, return meaningful HTTP status codes from FastAPI, and display user-friendly error messages in the UI.
+
+4. Store API keys, database credentials, and authentication secrets in environment variables, never commit real secrets, and never expose backend credentials to frontend code.
+
+5. Implement REST API endpoints in FastAPI using Pydantic schemas for request validation, response validation, and consistent JSON response structures.
+
+6. Follow the established folder structure by placing Next.js pages in frontend/app, reusable UI components in frontend/components, API routes in backend/app/api, and business logic in backend/app/services.
+
+7. Use PascalCase for React component names, snake_case for Python modules and functions, and descriptive camelCase names for TypeScript variables and functions.
+
+8. Write automated tests for every new backend endpoint and core business function using Pytest and HTTPX, and mock OpenAI API calls in tests.
+
+9. Ground all AI-generated explanations and practice exercises in uploaded Singapore Primary 2 to Primary 4 Mathematics and English worksheets, validate structured OpenAI responses with Pydantic, and reject malformed or incomplete outputs.
+
+10. Keep all student-facing explanations and exercises age-appropriate, record student practice results for learning analysis, and enforce parent-level access controls for student profiles and uploaded worksheets
+
+"""
+
+# Evaluate the rules
+lines = [l.strip() for l in my_cursorrules.splitlines() 
+         if l.strip() and not l.strip().startswith('#') and not l.strip().startswith('# TODO')]
+print(f"Rules written: {len(lines)}")
+if len(lines) < 8:
+    print("⚠️  Aim for at least 8-10 rules for effective AI guidance.")
+else:
+    print("✅  Good number of rules!")
+
+# Check for vague language
+vague_words = ['clean', 'good', 'proper', 'nice', 'correct', 'appropriate', 'best practice']
+vague_found = [w for w in vague_words if w in my_cursorrules.lower()]
+if vague_found:
+    print(f"⚠️  Vague language detected: {vague_found}. Make these more specific.")
+else:
+    print("✅  No vague language detected.")
+
+save_file(".cursorrules", my_cursorrules)
