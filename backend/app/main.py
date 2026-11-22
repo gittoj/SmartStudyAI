@@ -3,7 +3,9 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.config import settings
 from app.api import auth, children, dashboard, practice, worksheets
 from app.services.worksheet_service import purge_expired_files
 
@@ -27,6 +29,10 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="SmartStudy AI", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=True,
+    allow_methods=["*"], allow_headers=["*"],
+)
 for module in (auth, children, worksheets, practice, dashboard):
     app.include_router(module.router)
 

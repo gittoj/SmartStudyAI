@@ -1,3 +1,6 @@
+from sqlalchemy import select
+
+from app.models import Attempt, TopicProgress, Worksheet
 from app.schemas import Mastery
 
 WINDOW = 10
@@ -21,7 +24,28 @@ def calculate_mastery(latest_results: list[bool]) -> Mastery:
     return "developing"
 
 
-async def refresh_topic_progress(db, child_id, subject, level, topic) -> None:
-    """TODO: load latest 10 attempts for (child, subject, topic) via worksheets join,
-    recompute mastery/attempted/correct/last_practised_at, upsert TopicProgress."""
-    raise NotImplementedError
+async def refresh_topic_progress(db, child_id, subject: str, level: str, topic: str) -> TopicProgress:
+    """Recompute one topic's progress from this child's attempts. The caller commits.
+
+    Mastery uses the latest 10 attempts. The attempted/correct counts cover all attempts
+    on the topic, across every worksheet, so a new worksheet never resets progress.
+    """
+    rows = (await db.execute(
+        select(Attempt.is_correct, Attempt.submitted_at)
+        .join(Worksheet, Worksheet.id == Attempt.worksheet_id)
+        .where(Attempt.child_id == child_id, Worksheet.subject == subject, Worksheet.topic == topic)
+        .order_by(Attempt.submitted_at.desc(), Attempt.id.desc())
+    )).all()
+    results = [row.is_correct for row in rows]
+
+    progress = (await db.execute(select(TopicProgress).where(
+        TopicProgress.child_id == child_id, TopicProgress.subject == subject, TopicProgress.topic == topic
+    ))).scalar_one_or_none()
+    if progress is None:
+        progress = TopicProgress(child_id=child_id, subject=subject, level=level, topic=topic)
+        db.add(progress)
+    progress.questions_attempted = len(results)
+    progress.questions_correct = sum(results)
+    progress.last_practised_at = rows[0].submitted_at if rows else None
+    progress.mastery = calculate_mastery(results)
+    return progress

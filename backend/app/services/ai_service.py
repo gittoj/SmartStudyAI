@@ -120,7 +120,8 @@ async def generate_worksheet(
             timeout=settings.openai_timeout_seconds,
         )
     except (asyncio.TimeoutError, OpenAIError) as error:
-        raise GenerationFailed(type(error).__name__) from error
+        status = getattr(error, "status_code", "")
+        raise GenerationFailed(f"{type(error).__name__}:{status}" if status else type(error).__name__) from error
     content = response.choices[0].message.content or ""
     try:
         json.loads(content)

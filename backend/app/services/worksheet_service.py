@@ -14,9 +14,9 @@ from sqlalchemy import func, select
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models import Child, Parent, Question, TopicProgress, Worksheet
-from app.services.ai_service import generate_worksheet, subject_mismatch
+from app.services.ai_service import GenerationFailed, generate_worksheet, subject_mismatch
 from app.services.document_service import (
-    ExtractedPage, UploadRejected, detect_mime, extract_pages, is_readable, readable_text,
+    ExtractedPage, OcrUnavailable, UploadRejected, detect_mime, extract_pages, is_readable, readable_text,
 )
 from app.services.storage_service import delete_file, new_storage_key, read_file, save_file
 
@@ -83,7 +83,9 @@ async def process_worksheet(worksheet_id: uuid.UUID, session_factory=SessionLoca
         except Exception as error:  # includes TimeoutError, GenerationFailed, OcrUnavailable
             await db.rollback()
             await _mark_failed(db, worksheet_id, "service_unavailable")
-            logger.error("worksheet=%s status=failed error=%s", worksheet_id, type(error).__name__)
+            # Our own error codes carry no worksheet content, so the reason is safe to log.
+            reason = str(error) if isinstance(error, (GenerationFailed, OcrUnavailable)) else ""
+            logger.error("worksheet=%s status=failed error=%s reason=%s", worksheet_id, type(error).__name__, reason)
 
 
 async def _run_pipeline(db, worksheet_id: uuid.UUID, child: Child) -> None:

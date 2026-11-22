@@ -5,7 +5,9 @@ from sqlalchemy import select
 
 from app.core.deps import CurrentChild, Db
 from app.models import Question, Worksheet
-from app.schemas import PracticeFeedback, SubmitAnswerRequest, WorksheetResult, WorksheetSummary
+from app.schemas import (
+    PracticeFeedback, PracticeQuestion, SubmitAnswerRequest, WorkedExample, WorksheetResult, WorksheetSummary,
+)
 from app.services import exercise_service
 
 router = APIRouter(prefix="/api/practice", tags=["practice"])
@@ -13,16 +15,34 @@ router = APIRouter(prefix="/api/practice", tags=["practice"])
 
 @router.get("/worksheets", response_model=list[WorksheetSummary])
 async def list_ready_worksheets(child: CurrentChild, db: Db) -> list[Worksheet]:
-    """Child sees ready worksheets only."""
-    rows = await db.execute(select(Worksheet).where(Worksheet.child_id == child.id, Worksheet.status == "ready"))
+    """Child sees their own ready worksheets only, newest first."""
+    rows = await db.execute(
+        select(Worksheet).where(Worksheet.child_id == child.id, Worksheet.status == "ready")
+        .order_by(Worksheet.created_at.desc()))
     return list(rows.scalars())
 
 
 @router.get("/worksheets/{worksheet_id}", response_model=WorksheetResult)
 async def get_practice_worksheet(worksheet_id: uuid.UUID, child: CurrentChild, db: Db) -> WorksheetResult:
-    """TODO: load worksheet (must belong to child, status ready; processing -> 409 'Your worksheet is
-    being prepared'), map Question rows to PracticeQuestion WITHOUT expected_answer/explanation."""
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, "Not built yet.")
+    """Explanation, worked example and questions for the selected child. Never includes the
+    answer key. Worksheets that are not ready are not shown as results to the child."""
+    worksheet = await db.get(Worksheet, worksheet_id)
+    if worksheet is None or worksheet.child_id != child.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That worksheet could not be found.")
+    if worksheet.status in ("uploaded", "processing"):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Your worksheet is being prepared")
+    if worksheet.status != "ready":  # needs_review / failed: the child never sees the broken result
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That worksheet could not be found.")
+    questions = (await db.execute(
+        select(Question).where(Question.worksheet_id == worksheet.id).order_by(Question.position))).scalars().all()
+    return WorksheetResult(
+        id=worksheet.id, child_id=worksheet.child_id, subject=worksheet.subject, level=worksheet.level,
+        topic=worksheet.topic, status=worksheet.status, explanation=worksheet.explanation,
+        worked_example=WorkedExample.model_validate(worksheet.worked_example) if worksheet.worked_example else None,
+        practice_questions=[PracticeQuestion(id=q.id, prompt=q.prompt, choices=q.choices) for q in questions],
+        parent_note="",  # parent-facing; not shown to the child
+        created_at=worksheet.created_at,
+    )
 
 
 @router.post("/questions/{question_id}/answer", response_model=PracticeFeedback)

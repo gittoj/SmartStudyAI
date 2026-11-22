@@ -121,6 +121,12 @@ class WorksheetSummary(CamelModel):
     created_at: datetime
 
 
+class DashboardWorksheet(WorksheetSummary):
+    """Dashboard row: adds the message a parent sees for needs_review / failed worksheets."""
+    parent_note: str = ""
+    failure_reason: FailureReason | None = None
+
+
 # ---- AI output (validated before saving) ----
 class GeneratedQuestion(BaseModel):
     prompt: str = Field(min_length=1)
@@ -185,4 +191,4 @@ class DashboardChild(CamelModel):
 class ParentDashboard(CamelModel):
     child: DashboardChild
     topics: list[TopicProgress]
-    recent_worksheets: list[WorksheetSummary] = Field(max_length=8)
+    recent_worksheets: list[DashboardWorksheet] = Field(max_length=8)
