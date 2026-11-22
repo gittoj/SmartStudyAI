@@ -7,7 +7,9 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
 from app.core.deps import CurrentParent, Db, OwnedChild
-from app.core.security import CHILD_COOKIE, CHILD_MAX_AGE, hash_secret, sign_session, verify_secret
+from app.core.security import (
+    CHILD_COOKIE, CHILD_MAX_AGE, PARENT_COOKIE, clear_cookie, hash_secret, sign_session, verify_secret,
+)
 from app.models import Child, Worksheet
 from app.services.storage_service import delete_file
 from app.schemas import (
@@ -77,9 +79,11 @@ async def select_child(body: SelectChildRequest, child: OwnedChild, db: Db, resp
     token = sign_session({"parentId": str(child.parent_id), "childId": str(child.id)}, CHILD_COOKIE)
     response.set_cookie(CHILD_COOKIE, token, max_age=CHILD_MAX_AGE, httponly=True,
                         secure=settings.cookie_secure, samesite="lax")
+    # Parent pages lock: the parent must log in again before the parent area opens on this device.
+    clear_cookie(response, PARENT_COOKIE)
     return child
 
 
 @router.post("/session/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def child_logout(response: Response) -> None:
-    response.delete_cookie(CHILD_COOKIE)
+    clear_cookie(response, CHILD_COOKIE)

@@ -49,12 +49,12 @@ async def child_login(client, child_id: str) -> None:
     assert (await client.post(f"/api/children/{child_id}/select", json={"pin": "1234"})).status_code == 200
 
 
-async def seed_worksheet(factory, child_id: str, *, status="ready", topic="fractions", created_at=None, note=""):
+async def seed_worksheet(factory, child_id: str, *, status="ready", topic="fractions", created_at=None, note="", storage_key=None):
     async with factory() as db:
         worksheet = Worksheet(
             child_id=uuid.UUID(child_id), subject="mathematics", level="P3", topic=topic, status=status,
             explanation="Halves.", worked_example={"prompt": "p", "steps": ["s"], "answer": "a"},
-            parent_note=note, created_at=created_at or datetime.now(timezone.utc))
+            parent_note=note, storage_key=storage_key, created_at=created_at or datetime.now(timezone.utc))
         db.add(worksheet)
         await db.flush()
         question_ids: list[str] = []
@@ -143,6 +143,8 @@ async def test_answers_update_progress_and_dashboard(env) -> None:
         invalid = await client.post(f"/api/practice/questions/{questions[2]}/answer", json={"answer": "99"})
         assert invalid.status_code == 422 and invalid.json()["detail"] == "Choose an answer first."
 
+        # The parent session ended when the child started; a grown-up logs in again to see progress.
+        assert (await client.post("/api/auth/login", json={"email": "p@example.com", "password": PASSWORD})).status_code == 200
         dashboard = await client.get(f"/api/dashboard/{child_id}")
         assert dashboard.status_code == 200
         topic = dashboard.json()["topics"][0]
@@ -174,7 +176,7 @@ async def test_dashboard_requires_the_parent_session(env) -> None:
         await register_and_login(client)
         child_id = await create_child(client)
         await child_login(client, child_id)
-        client.cookies.delete("parent_session")  # only the child session remains
+        # selecting the child already ended the parent session
         assert (await client.get(f"/api/dashboard/{child_id}")).status_code == 401
 
 
@@ -198,3 +200,78 @@ async def test_cors_allows_the_frontend_origin_with_cookies(env) -> None:
             "Access-Control-Request-Headers": "content-type"})
         assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
         assert response.headers["access-control-allow-credentials"] == "true"
+
+
+async def test_practice_me_needs_a_child_session(env) -> None:
+    _, make_client = env
+    async with make_client() as client:
+        await register_and_login(client)
+        child_id = await create_child(client)
+        assert (await client.get("/api/practice/me")).status_code == 401  # parent session alone is not enough
+        await child_login(client, child_id)
+        body = (await client.get("/api/practice/me")).json()
+        assert body == {"id": child_id, "username": "alex", "level": "P3"}
+
+
+async def test_parent_can_remove_a_failed_worksheet_and_its_file(env, monkeypatch) -> None:
+    from app.services import worksheet_service
+
+    deleted: list[str] = []
+
+    async def fake_delete(key: str) -> None:
+        deleted.append(key)
+
+    monkeypatch.setattr(worksheet_service, "delete_file", fake_delete)
+    factory, make_client = env
+    async with make_client() as client:
+        await register_and_login(client)
+        child_id = await create_child(client)
+        worksheet_id, _ = await seed_worksheet(factory, child_id, status="failed", topic="", storage_key="k/file.pdf")
+        assert (await client.delete(f"/api/worksheets/{worksheet_id}")).status_code == 204
+        assert deleted == ["k/file.pdf"]
+        body = (await client.get(f"/api/dashboard/{child_id}")).json()
+        assert body["recentWorksheets"] == []
+
+
+async def test_ready_worksheet_cannot_be_removed(env) -> None:
+    factory, make_client = env
+    async with make_client() as client:
+        await register_and_login(client)
+        child_id = await create_child(client)
+        worksheet_id, _ = await seed_worksheet(factory, child_id)
+        assert (await client.delete(f"/api/worksheets/{worksheet_id}")).status_code == 409
+
+
+async def test_another_parent_cannot_remove_a_worksheet(env) -> None:
+    factory, make_client = env
+    async with make_client() as owner, make_client() as stranger:
+        await register_and_login(owner, "owner@example.com")
+        child_id = await create_child(owner)
+        worksheet_id, _ = await seed_worksheet(factory, child_id, status="failed", topic="")
+        await register_and_login(stranger, "stranger@example.com")
+        assert (await stranger.delete(f"/api/worksheets/{worksheet_id}")).status_code == 404
+        assert len((await owner.get(f"/api/dashboard/{child_id}")).json()["recentWorksheets"]) == 1
+
+
+async def test_selecting_a_child_locks_the_parent_area(env) -> None:
+    _, make_client = env
+    async with make_client() as client:
+        await register_and_login(client)
+        child_id = await create_child(client)
+        assert (await client.get("/api/auth/me")).status_code == 200
+        await child_login(client, child_id)
+        for path in ("/api/auth/me", "/api/children", f"/api/dashboard/{child_id}"):
+            assert (await client.get(path)).status_code == 401, path
+        assert (await client.post("/api/worksheets/00000000-0000-0000-0000-000000000000/retry")).status_code == 401
+        assert (await client.get("/api/practice/me")).status_code == 200  # the child can still practise
+
+
+async def test_parent_login_ends_the_child_session(env) -> None:
+    _, make_client = env
+    async with make_client() as client:
+        await register_and_login(client)
+        child_id = await create_child(client)
+        await child_login(client, child_id)
+        assert (await client.post("/api/auth/login", json={"email": "p@example.com", "password": PASSWORD})).status_code == 200
+        assert (await client.get("/api/practice/me")).status_code == 401
+        assert (await client.get("/api/children")).status_code == 200

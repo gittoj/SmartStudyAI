@@ -7,6 +7,7 @@ export type FailureReason = "unreadable" | "wrong_subject" | "too_long" | "unsup
 
 export interface ParentAccount { id: string; email: string; displayName: string; createdAt: string }
 export interface ChildProfile { id: string; parentId: string; username: string; level: Level; createdAt: string }
+export type ChildSummary = Pick<ChildProfile, "id" | "username" | "level">;
 export interface CreateChildRequest { username: string; level: Level; pin: string }
 
 export interface WorkedExample { prompt: string; steps: string[]; answer: string }

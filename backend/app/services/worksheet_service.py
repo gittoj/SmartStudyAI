@@ -194,3 +194,22 @@ async def purge_expired_files(session_factory=SessionLocal) -> int:
             purged += 1
         await db.commit()
     return purged
+
+
+async def remove_worksheet(db, parent: Parent, worksheet_id: uuid.UUID) -> None:
+    """Parent removes a worksheet that could not be prepared (failed or needs_review).
+    Ready worksheets are not removable: that would erase the child's practice history."""
+    worksheet = await db.get(Worksheet, worksheet_id)
+    child = await db.get(Child, worksheet.child_id) if worksheet else None
+    if worksheet is None or child is None or child.parent_id != parent.id:
+        raise HTTPException(404, "That worksheet could not be found.")
+    if worksheet.status not in ("failed", "needs_review"):
+        raise HTTPException(409, "Only worksheets that could not be prepared can be removed.")
+    key = worksheet.storage_key
+    await db.delete(worksheet)
+    await db.commit()
+    if key:
+        try:
+            await delete_file(key)
+        except OSError as error:  # the row is gone; a leftover file is logged, not shown to the parent
+            logger.error("worksheet=%s file_delete_failed error=%s", worksheet_id, type(error).__name__)

@@ -267,6 +267,7 @@ If validation fails, do not store the file and do not call PyMuPDF, the OCR serv
 - The child session cannot access parent dashboard or account-management functions.
 - Parent and child sessions must be separate.
 - Logging out clears the relevant session cookie.
+- selecting a child ends the parent session on that device, and parent login ends the child session
 
 ### Coding style
 

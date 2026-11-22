@@ -52,3 +52,9 @@ async def retry_worksheet(worksheet_id: uuid.UUID, parent: CurrentParent, db: Db
     await worksheet_service.retry_worksheet(db, parent, worksheet_id)
     background.add_task(worksheet_service.process_worksheet, worksheet_id)
     return {"id": str(worksheet_id)}
+
+
+@router.delete("/{worksheet_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_worksheet(worksheet_id: uuid.UUID, parent: CurrentParent, db: Db) -> None:
+    """Remove a failed or needs_review worksheet and its stored file."""
+    await worksheet_service.remove_worksheet(db, parent, worksheet_id)

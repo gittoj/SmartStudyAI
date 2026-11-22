@@ -24,6 +24,7 @@ export function ParentShell({ children }: { children: ReactNode }) {
         <Link href="/dashboard">Dashboard</Link>
         <Link href="/students">Children</Link>
         <Link href="/worksheets">Upload</Link>
+        <Link href="/learning">Child practice</Link>
         <span className="spacer" />
         <span className="muted">{parent.displayName}</span>
         <button type="button" className="secondary" style={{ marginTop: 0 }} onClick={handleLogout}>Log out</button>

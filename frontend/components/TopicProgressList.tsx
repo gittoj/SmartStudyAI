@@ -18,7 +18,7 @@ export function TopicProgressList({ topics }: { topics: TopicProgress[] }) {
               <li key={topic.topic}>
                 <span><span className="cap">{topic.topic}</span><br />
                   <span className="muted">{topic.questionsAttempted === 0 ? "Not practised yet"
-                    : `${topic.questionsCorrect} of ${topic.questionsAttempted} correct · last practised ${new Date(topic.lastPractisedAt ?? "").toLocaleDateString()}`}
+                    : `${topic.questionsCorrect} of ${topic.questionsAttempted} correct · last practised ${new Date(topic.lastPractisedAt ?? "").toLocaleDateString("en-SG")}`}
                   </span></span>
                 <span className={`badge ${topic.mastery}`}>{MASTERY_LABEL[topic.mastery]}</span>
               </li>

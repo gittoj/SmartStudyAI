@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ParentShell } from "@/components/ParentShell";
 import { RecentWorksheets } from "@/components/RecentWorksheets";
 import { TopicProgressList } from "@/components/TopicProgressList";
-import { errorMessage, getDashboard, listChildren } from "@/lib/api";
+import { errorMessage, getDashboard, listChildren, removeWorksheet } from "@/lib/api";
 import type { ChildProfile, ParentDashboard } from "@/lib/types";
 
 const LAST_CHILD_KEY = "smartstudy:lastChild"; // a profile id only; nothing sensitive
@@ -50,6 +50,16 @@ function DashboardView() {
     return () => clearTimeout(timer);
   }, [reading, selectedId, dashboard, load]);
 
+  async function handleRemove(worksheetId: string) {
+    if (!selectedId || !window.confirm("Remove this worksheet? You will not be able to try it again.")) return;
+    try {
+      await removeWorksheet(worksheetId);
+      await load(selectedId);
+    } catch (error) {
+      setMessage(errorMessage(error));
+    }
+  }
+
   if (message && !dashboard) return <p role="alert">{message}</p>;
   if (children === null) return <p role="status">Loading…</p>;
   if (children.length === 0) return <p>Create a <Link className="link" href="/students">child profile</Link> with a username, level and PIN to begin.</p>;
@@ -62,7 +72,7 @@ function DashboardView() {
         {children.map((child) => <option key={child.id} value={child.id}>{child.username} ({child.level})</option>)}
       </select>
       {message && <p role="alert">{message}</p>}
-      {dashboard && <><TopicProgressList topics={dashboard.topics} /><RecentWorksheets worksheets={dashboard.recentWorksheets} /></>}
+      {dashboard && <><TopicProgressList topics={dashboard.topics} /><RecentWorksheets worksheets={dashboard.recentWorksheets} onRemove={handleRemove} /></>}
       <p><Link className="button" href="/worksheets">Upload a worksheet</Link></p>
     </>
   );

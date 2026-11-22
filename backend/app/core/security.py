@@ -35,3 +35,8 @@ def read_session(token: str, salt: str, max_age: int) -> dict[str, str] | None:
     except (BadSignature, SignatureExpired):
         return None
     return data if isinstance(data, dict) else None
+
+
+def clear_cookie(response, name: str) -> None:
+    """Delete a session cookie using the same attributes it was set with."""
+    response.delete_cookie(name, secure=settings.cookie_secure, httponly=True, samesite="lax")

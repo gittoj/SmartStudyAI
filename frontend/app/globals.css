@@ -23,3 +23,15 @@ button:disabled { opacity:.6; cursor:wait; } :focus-visible { outline:3px solid 
 .confident,.ready { background:var(--ok-bg); color:var(--ok); } .not_started { background:var(--idle-bg); color:var(--idle); }
 [role="alert"] { background:var(--warn-bg); color:var(--warn); padding:.6rem .8rem; border-radius:10px; margin:.75rem 0; }
 @media (max-width: 480px) { main { padding: 1rem .75rem 3rem; } }
+/* Child screens: big targets, calm colours */
+.kid h1 { font-size: 1.9rem; } .kid .card { padding: 1.25rem; }
+.kid button, .kid .button { font-size: 1.15rem; padding: .8rem 1.3rem; }
+.choice { display:flex; gap:.75rem; align-items:center; padding:.9rem 1rem; margin:.5rem 0; border:2px solid var(--line);
+  border-radius:14px; font-size:1.2rem; font-weight:600; cursor:pointer; background:var(--card); }
+.choice input { width:1.4rem; height:1.4rem; flex:none; accent-color: var(--brand); }
+.choice.picked { border-color: var(--brand); }
+.pick { display:block; width:100%; text-align:left; margin:.5rem 0; }
+.steps { padding-left: 1.4rem; } .steps li { margin:.4rem 0; }
+.result { border-radius:14px; padding:1rem; margin:1rem 0; } .result.right { background: var(--ok-bg); color: var(--ok); }
+.result.retry { background: var(--info-bg); color: var(--info); } .result p { margin:.3rem 0; font-size:1.1rem; }
+.pick .muted { color: inherit; opacity: .85; }

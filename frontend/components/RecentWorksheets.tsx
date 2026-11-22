@@ -1,7 +1,9 @@
 import Link from "next/link";
 import type { DashboardWorksheet } from "@/lib/types";
 
-export function RecentWorksheets({ worksheets }: { worksheets: DashboardWorksheet[] }) {
+interface Props { worksheets: DashboardWorksheet[]; onRemove: (worksheetId: string) => void }
+
+export function RecentWorksheets({ worksheets, onRemove }: Props) {
   if (worksheets.length === 0) return null;
   return (
     <section className="card">
@@ -13,12 +15,18 @@ export function RecentWorksheets({ worksheets }: { worksheets: DashboardWorkshee
           return (
             <li key={worksheet.id}>
               <span><span className="cap">{worksheet.topic || worksheet.subject}</span><br />
-                <span className="muted">{new Date(worksheet.createdAt).toLocaleDateString()}</span>
+                <span className="muted">{new Date(worksheet.createdAt).toLocaleDateString("en-SG")}</span>
                 {problem && <><br /><span>{worksheet.parentNote}</span></>}</span>
               <span>
                 {reading && <span className="badge processing">Reading worksheet</span>}
                 {worksheet.status === "ready" && <span className="badge ready">Ready</span>}
-                {problem && <Link className="button secondary" style={{ marginTop: 0 }} href="/worksheets">Upload again</Link>}
+                {problem && (
+                  <>
+                    <Link className="button secondary" style={{ marginTop: 0 }} href="/worksheets">Upload again</Link>{" "}
+                    <button type="button" className="secondary" style={{ marginTop: 0 }}
+                      onClick={() => onRemove(worksheet.id)}>Remove</button>
+                  </>
+                )}
               </span>
             </li>
           );

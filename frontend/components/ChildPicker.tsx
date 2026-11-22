@@ -1,37 +1,52 @@
 "use client";
-import { useState } from "react";
-import { selectChild } from "@/lib/api";
+import { useState, type FormEvent } from "react";
 import type { ChildProfile } from "@/lib/types";
 
-interface Props { children: ChildProfile[]; onSelected: (child: ChildProfile) => void }
+interface Props {
+  children: ChildProfile[];
+  /** Returns an error message to show, or null when the PIN was accepted. */
+  onSubmitPin: (child: ChildProfile, pin: string) => Promise<string | null>;
+}
 
-export function ChildPicker({ children, onSelected }: Props) {
+export function ChildPicker({ children, onSubmitPin }: Props) {
   const [pending, setPending] = useState<ChildProfile | null>(null);
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  async function handleConfirmPin() {
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
     if (!pending) return;
-    try {
-      onSelected(await selectChild(pending.id, pin));
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Something went wrong. Please try again.");
-    }
+    setBusy(true);
+    setMessage(await onSubmitPin(pending, pin));
+    setPin("");
+    setBusy(false);
+  }
+
+  if (!pending) {
+    return (
+      <div className="card">
+        <h1>Who is practising?</h1>
+        {children.length === 0 && <p>Ask a grown-up to add your profile first.</p>}
+        <p className="muted">Grown-ups: once a child starts, you will need to log in again to open the dashboard.</p>
+        {children.map((child) => (
+          <button key={child.id} type="button" className="pick" onClick={() => { setPending(child); setMessage(null); }}>
+            <span className="cap">{child.username}</span>
+          </button>
+        ))}
+      </div>
+    );
   }
 
   return (
-    <div>
-      {children.map((child) => (
-        <button key={child.id} type="button" onClick={() => setPending(child)}>{child.username}</button>
-      ))}
-      {pending && (
-        <div>
-          <input type="password" inputMode="numeric" maxLength={4} value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} aria-label="PIN" />
-          <button type="button" onClick={handleConfirmPin}>Start</button>
-        </div>
-      )}
+    <form className="card" onSubmit={handleSubmit}>
+      <h1>Hi, <span className="cap">{pending.username}</span>!</h1>
+      <label htmlFor="pin">Type your 4-digit PIN</label>
+      <input id="pin" type="password" inputMode="numeric" autoComplete="off" autoFocus required pattern="\d{4}" maxLength={4}
+        value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
       {message && <p role="alert">{message}</p>}
-    </div>
+      <button type="submit" disabled={busy}>Start</button>{" "}
+      <button type="button" className="secondary" onClick={() => { setPending(null); setMessage(null); }}>Back</button>
+    </form>
   );
 }

@@ -6,11 +6,17 @@ from sqlalchemy import select
 from app.core.deps import CurrentChild, Db
 from app.models import Question, Worksheet
 from app.schemas import (
-    PracticeFeedback, PracticeQuestion, SubmitAnswerRequest, WorkedExample, WorksheetResult, WorksheetSummary,
+    DashboardChild, PracticeFeedback, PracticeQuestion, SubmitAnswerRequest, WorkedExample, WorksheetResult, WorksheetSummary,
 )
 from app.services import exercise_service
 
 router = APIRouter(prefix="/api/practice", tags=["practice"])
+
+
+@router.get("/me", response_model=DashboardChild)
+async def get_selected_child(child: CurrentChild) -> DashboardChild:
+    """Who is practising? Also tells the frontend whether a child session exists (401 if not)."""
+    return DashboardChild.model_validate(child)
 
 
 @router.get("/worksheets", response_model=list[WorksheetSummary])
