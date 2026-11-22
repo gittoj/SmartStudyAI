@@ -8,7 +8,8 @@ from sqlalchemy.exc import IntegrityError
 from app.core.config import settings
 from app.core.deps import CurrentParent, Db, OwnedChild
 from app.core.security import CHILD_COOKIE, CHILD_MAX_AGE, hash_secret, sign_session, verify_secret
-from app.models import Child
+from app.models import Child, Worksheet
+from app.services.storage_service import delete_file
 from app.schemas import (
     ChildChoice, ChildProfile, CreateChildRequest, DeleteChildRequest, SelectChildRequest,
 )
@@ -43,7 +44,10 @@ async def create_child_profile(body: CreateChildRequest, parent: CurrentParent, 
 async def delete_child_profile(body: DeleteChildRequest, child: OwnedChild, db: Db) -> None:
     if body.confirm_username.lower() != child.username:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Type the child's username to confirm.")
-    # TODO: delete this child's worksheet files from private storage before removing rows.
+    keys = (await db.execute(select(Worksheet.storage_key).where(
+        Worksheet.child_id == child.id, Worksheet.storage_key.is_not(None)))).scalars().all()
+    for key in keys:
+        await delete_file(key)
     await db.delete(child)  # attempts, progress, worksheets cascade
     await db.commit()
 

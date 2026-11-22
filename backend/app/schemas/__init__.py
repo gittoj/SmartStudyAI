@@ -130,11 +130,23 @@ class GeneratedQuestion(BaseModel):
 
 
 class GeneratedWorksheet(BaseModel):
-    topic: str = Field(min_length=1, max_length=120)
-    explanation: str = Field(min_length=1)
-    worked_example: WorkedExample
+    """Raw model output. Completeness is enforced by ai_service.validate_generated,
+    because a subject mismatch legitimately returns no questions."""
+    detected_subject: Literal["mathematics", "english", "unclear"]
+    topic: str = ""
+    explanation: str = ""
+    worked_example: WorkedExample | None = None
+    parent_note: str = ""
+    questions: list[GeneratedQuestion] = Field(default_factory=list, max_length=5)
+
+
+class WorksheetStatusResponse(CamelModel):
+    """Parent polling: status plus the message to show when review or retry is needed."""
+    id: uuid.UUID
+    status: WorksheetStatus
     parent_note: str
-    questions: list[GeneratedQuestion] = Field(min_length=5, max_length=5)
+    failure_reason: FailureReason | None = None
+    can_retry: bool
 
 
 # ---- Practice ----

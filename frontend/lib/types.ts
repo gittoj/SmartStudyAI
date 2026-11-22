@@ -33,3 +33,8 @@ export interface ParentDashboard {
   topics: TopicProgress[];
   recentWorksheets: WorksheetSummary[];
 }
+
+export interface WorksheetStatusResponse {
+  id: string; status: WorksheetStatus; parentNote: string;
+  failureReason?: WorksheetResult["failureReason"]; canRetry: boolean;
+}

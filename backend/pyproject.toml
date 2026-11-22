@@ -1,11 +1,14 @@
 [project]
 name = "smartstudy-backend"
 version = "0.1.0"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.15"
 dependencies = [
   "fastapi", "uvicorn[standard]", "pydantic>=2", "pydantic-settings",
   "sqlalchemy[asyncio]>=2", "asyncpg", "alembic", "python-multipart",
-  "argon2-cffi", "itsdangerous", "pymupdf", "openai", "email-validator",
+  "argon2-cffi", "itsdangerous", "pymupdf", "openai", "email-validator", "httpx", "pytesseract", "pillow",
 ]
 [dependency-groups]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "httpx"]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "aiosqlite"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

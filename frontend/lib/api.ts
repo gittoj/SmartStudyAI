@@ -1,5 +1,5 @@
 import type {
-  ChildProfile, CreateChildRequest, ParentDashboard, PracticeFeedback, WorksheetResult, WorksheetSummary,
+  ChildProfile, CreateChildRequest, ParentDashboard, PracticeFeedback, WorksheetResult, WorksheetStatusResponse, WorksheetSummary,
 } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
@@ -42,3 +42,6 @@ export const listReadyWorksheets = () => request<WorksheetSummary[]>("/api/pract
 export const getPracticeWorksheet = (id: string) => request<WorksheetResult>(`/api/practice/worksheets/${id}`);
 export const submitPracticeAnswer = (questionId: string, answer: string) =>
   request<PracticeFeedback>(`/api/practice/questions/${questionId}/answer`, json("POST", { answer }));
+
+export const getWorksheetStatus = (id: string) => request<WorksheetStatusResponse>(`/api/worksheets/${id}`);
+export const retryWorksheet = (id: string) => request<{ id: string }>(`/api/worksheets/${id}/retry`, { method: "POST" });

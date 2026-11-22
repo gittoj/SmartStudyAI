@@ -1,8 +1,32 @@
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.api import auth, children, dashboard, practice, worksheets
+from app.services.worksheet_service import purge_expired_files
 
-app = FastAPI(title="SmartStudy AI")
+logger = logging.getLogger(__name__)
+
+
+async def _purge_loop() -> None:
+    while True:
+        try:
+            await purge_expired_files()
+        except Exception as error:
+            logger.error("purge failed error=%s", type(error).__name__)
+        await asyncio.sleep(3600)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    task = asyncio.create_task(_purge_loop())
+    yield
+    task.cancel()
+
+
+app = FastAPI(title="SmartStudy AI", lifespan=lifespan)
 for module in (auth, children, worksheets, practice, dashboard):
     app.include_router(module.router)
 
