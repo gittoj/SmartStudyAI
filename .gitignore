@@ -4,3 +4,6 @@
 !.env.example
 
 backend/.env
+backend/private_storage/
+__pycache__/
+*.pyc
