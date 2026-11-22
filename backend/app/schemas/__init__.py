@@ -11,6 +11,8 @@ Level = Literal["P2", "P3", "P4"]
 Subject = Literal["mathematics", "english"]
 WorksheetStatus = Literal["uploaded", "processing", "ready", "needs_review", "failed"]
 Mastery = Literal["not_started", "needs_practice", "developing", "confident"]
+ReportReason = Literal["answer_looks_wrong", "dont_understand", "something_else"]
+ReportResolution = Literal["confirmed", "dismissed"]
 FailureReason = Literal["unreadable", "wrong_subject", "too_long", "unsupported_file", "service_unavailable"]
 
 
@@ -160,6 +162,26 @@ class SubmitAnswerRequest(CamelModel):
     answer: str
 
 
+class ReportQuestionRequest(CamelModel):
+    reason: ReportReason
+
+
+class ResolveReportRequest(CamelModel):
+    resolution: ReportResolution
+
+
+class ReportedQuestion(CamelModel):
+    """What the parent sees. The answer was already shown to the child when they answered."""
+    id: uuid.UUID
+    topic: str
+    prompt: str
+    choices: list[str]
+    correct_choice: str
+    explanation: str
+    reason: ReportReason
+    created_at: datetime
+
+
 class PracticeFeedback(CamelModel):
     id: uuid.UUID
     question_id: uuid.UUID
@@ -192,3 +214,4 @@ class ParentDashboard(CamelModel):
     child: DashboardChild
     topics: list[TopicProgress]
     recent_worksheets: list[DashboardWorksheet] = Field(max_length=8)
+    reported_questions: list[ReportedQuestion] = []

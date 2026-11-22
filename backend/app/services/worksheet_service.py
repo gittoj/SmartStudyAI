@@ -175,6 +175,7 @@ async def retry_worksheet(db, parent: Parent, worksheet_id: uuid.UUID) -> None:
     worksheet.retry_count = 1
     worksheet.failure_reason = None
     worksheet.status = "uploaded"
+    worksheet.queued_at = datetime.now(timezone.utc)  # restart the stuck-job clock
     await db.commit()
 
 
@@ -213,3 +214,27 @@ async def remove_worksheet(db, parent: Parent, worksheet_id: uuid.UUID) -> None:
             await delete_file(key)
         except OSError as error:  # the row is gone; a leftover file is logged, not shown to the parent
             logger.error("worksheet=%s file_delete_failed error=%s", worksheet_id, type(error).__name__)
+
+
+async def recover_stuck_worksheets(session_factory=SessionLocal, now: datetime | None = None) -> int:
+    """Mark worksheets that have been `uploaded` or `processing` for too long as `failed`.
+
+    A server restart or crash mid-job leaves a row in progress forever. After
+    settings.stuck_worksheet_minutes it becomes `failed` with the standard message, so the parent
+    can retry once (if no retry was used) or remove it. Returns how many rows were recovered.
+    """
+    cutoff = (now or datetime.now(timezone.utc)) - timedelta(minutes=settings.stuck_worksheet_minutes)
+    async with session_factory() as db:
+        rows = (await db.execute(select(Worksheet).where(
+            Worksheet.status.in_(("uploaded", "processing")),
+            func.coalesce(Worksheet.queued_at, Worksheet.created_at) < cutoff,
+        ))).scalars().all()
+        for worksheet in rows:
+            worksheet.status = "failed"
+            worksheet.failure_reason = "service_unavailable"
+            worksheet.parent_note = FAILED_MESSAGE
+            if worksheet.retry_count >= 1:
+                worksheet.extracted_pages = None  # retry already used; keep the file for the 7-day window only
+            logger.error("worksheet=%s status=failed error=stuck_recovered", worksheet.id)
+        await db.commit()
+    return len(rows)

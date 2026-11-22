@@ -54,6 +54,8 @@ class Worksheet(Base):
     worked_example: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     parent_note: Mapped[str] = mapped_column(Text, default="")
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    # When this worksheet last entered the queue (upload or retry). The stuck-job sweep measures from here.
+    queued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=_now, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
@@ -94,3 +96,27 @@ class TopicProgress(Base):
     questions_attempted: Mapped[int] = mapped_column(Integer, default=0)
     questions_correct: Mapped[int] = mapped_column(Integer, default=0)
     last_practised_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class RateLimitEvent(Base):
+    """One failed login or sign-up attempt. `key` is a keyed hash, so emails and IP addresses are not stored."""
+    __tablename__ = "rate_limit_events"
+    __table_args__ = (Index("ix_rate_limit_lookup", "scope", "key", "created_at"),)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    scope: Mapped[str] = mapped_column(String(24))
+    key: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class QuestionReport(Base):
+    """A child's "this question looks odd" flag. open/confirmed hide the question from progress;
+    dismissed (the parent says it is fine) counts it again."""
+    __tablename__ = "question_reports"
+    __table_args__ = (UniqueConstraint("child_id", "question_id", name="uq_report_once"),)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    child_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("children.id", ondelete="CASCADE"), index=True)
+    question_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("questions.id", ondelete="CASCADE"), index=True)
+    worksheet_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("worksheets.id", ondelete="CASCADE"))
+    reason: Mapped[str] = mapped_column(String(24))
+    status: Mapped[str] = mapped_column(String(12), default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

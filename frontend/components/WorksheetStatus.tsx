@@ -23,7 +23,7 @@ export function WorksheetStatus({ worksheetId, onReupload }: Props) {
         if (active) setMessage(errorMessage(error));
       }
     }
-    void poll();
+    timer = setTimeout(poll, 0);
     return () => { active = false; if (timer) clearTimeout(timer); };
   }, [worksheetId, round]);
 

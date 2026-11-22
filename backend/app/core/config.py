@@ -27,6 +27,15 @@ class Settings(BaseSettings):
     openai_timeout_seconds: int = 60
     processing_timeout_seconds: int = 120
     failed_file_retention_days: int = 7
+    stuck_worksheet_minutes: int = 15  # still uploaded/processing after this long = abandoned
+    sweep_interval_seconds: int = 300
+    login_fail_limit_email: int = 10  # failed logins per email per window before a temporary block
+    login_fail_limit_ip: int = 20  # failed logins per IP address per window
+    login_window_minutes: int = 15
+    register_limit_ip: int = 10  # sign-up attempts per IP address per hour
+    # Name of a header your own proxy sets to the real client address (e.g. "x-real-ip"). Leave empty
+    # unless a trusted proxy overwrites it: otherwise anyone could fake it and dodge the limits.
+    trust_proxy_header: str = ""
     max_prompt_chars: int = 12000
 
     @property

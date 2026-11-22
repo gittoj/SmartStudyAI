@@ -3,12 +3,12 @@ import { useState, type FormEvent } from "react";
 import type { ChildProfile } from "@/lib/types";
 
 interface Props {
-  children: ChildProfile[];
+  profiles: ChildProfile[];
   /** Returns an error message to show, or null when the PIN was accepted. */
   onSubmitPin: (child: ChildProfile, pin: string) => Promise<string | null>;
 }
 
-export function ChildPicker({ children, onSubmitPin }: Props) {
+export function ChildPicker({ profiles, onSubmitPin }: Props) {
   const [pending, setPending] = useState<ChildProfile | null>(null);
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -27,9 +27,9 @@ export function ChildPicker({ children, onSubmitPin }: Props) {
     return (
       <div className="card">
         <h1>Who is practising?</h1>
-        {children.length === 0 && <p>Ask a grown-up to add your profile first.</p>}
+        {profiles.length === 0 && <p>Ask a grown-up to add your profile first.</p>}
         <p className="muted">Grown-ups: once a child starts, you will need to log in again to open the dashboard.</p>
-        {children.map((child) => (
+        {profiles.map((child) => (
           <button key={child.id} type="button" className="pick" onClick={() => { setPending(child); setMessage(null); }}>
             <span className="cap">{child.username}</span>
           </button>

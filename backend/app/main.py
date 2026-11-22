@@ -7,7 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api import auth, children, dashboard, practice, worksheets
-from app.services.worksheet_service import purge_expired_files
+from app.services.rate_limit_service import purge_old_events
+from app.services.worksheet_service import purge_expired_files, recover_stuck_worksheets
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +22,25 @@ async def _purge_loop() -> None:
         await asyncio.sleep(3600)
 
 
+async def _sweep_loop() -> None:
+    """Recover abandoned worksheets right away (a restart is the usual cause), then keep checking."""
+    while True:
+        try:
+            recovered = await recover_stuck_worksheets()
+            if recovered:
+                logger.warning("sweep recovered=%s", recovered)
+            await purge_old_events()
+        except Exception as error:
+            logger.error("sweep failed error=%s", type(error).__name__)
+        await asyncio.sleep(settings.sweep_interval_seconds)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    task = asyncio.create_task(_purge_loop())
+    tasks = [asyncio.create_task(_purge_loop()), asyncio.create_task(_sweep_loop())]
     yield
-    task.cancel()
+    for task in tasks:
+        task.cancel()
 
 
 app = FastAPI(title="SmartStudy AI", lifespan=lifespan)

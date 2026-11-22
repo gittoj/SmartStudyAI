@@ -16,7 +16,13 @@ function ChildrenManager() {
   const refresh = useCallback(async () => {
     try { setChildren(await listChildren()); } catch (error) { setMessage(errorMessage(error)); }
   }, []);
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    let active = true; // state is set only when the response arrives, never synchronously in the effect
+    listChildren()
+      .then((list) => { if (active) setChildren(list); })
+      .catch((error) => { if (active) setMessage(errorMessage(error)); });
+    return () => { active = false; };
+  }, []);
 
   async function handleCreate(values: CreateChildRequest): Promise<boolean> {
     try {

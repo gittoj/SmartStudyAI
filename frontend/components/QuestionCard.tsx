@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import type { PracticeFeedback, PracticeQuestion } from "@/lib/types";
+import { ReportQuestion } from "./ReportQuestion";
 
 interface Props {
   question: PracticeQuestion;
@@ -43,6 +44,7 @@ export function QuestionCard({ question, number, total, feedback, busy, message,
             {!feedback.isCorrect && <p>The answer is <strong>{feedback.correctChoice}</strong>.</p>}
             <p>{feedback.feedback}</p>
           </div>
+          <ReportQuestion questionId={question.id} />
           <button type="button" onClick={onNext}>{number === total ? "Finish" : "Next question"}</button>
         </>
       )}

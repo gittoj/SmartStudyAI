@@ -1,6 +1,6 @@
-from sqlalchemy import select
+from sqlalchemy import exists, select
 
-from app.models import Attempt, TopicProgress, Worksheet
+from app.models import Attempt, QuestionReport, TopicProgress, Worksheet
 from app.schemas import Mastery
 
 WINDOW = 10
@@ -34,6 +34,10 @@ async def refresh_topic_progress(db, child_id, subject: str, level: str, topic: 
         select(Attempt.is_correct, Attempt.submitted_at)
         .join(Worksheet, Worksheet.id == Attempt.worksheet_id)
         .where(Attempt.child_id == child_id, Worksheet.subject == subject, Worksheet.topic == topic)
+        # A question the child flagged stays out of progress until the parent says it is fine.
+        .where(~exists().where(
+            QuestionReport.child_id == Attempt.child_id, QuestionReport.question_id == Attempt.question_id,
+            QuestionReport.status != "dismissed"))
         .order_by(Attempt.submitted_at.desc(), Attempt.id.desc())
     )).all()
     results = [row.is_correct for row in rows]

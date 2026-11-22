@@ -1,14 +1,14 @@
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import select
 
 from app.core.deps import CurrentChild, Db
 from app.models import Question, Worksheet
 from app.schemas import (
-    DashboardChild, PracticeFeedback, PracticeQuestion, SubmitAnswerRequest, WorkedExample, WorksheetResult, WorksheetSummary,
+    DashboardChild, PracticeFeedback, PracticeQuestion, ReportQuestionRequest, SubmitAnswerRequest, WorkedExample, WorksheetResult, WorksheetSummary,
 )
-from app.services import exercise_service
+from app.services import exercise_service, report_service
 
 router = APIRouter(prefix="/api/practice", tags=["practice"])
 
@@ -54,3 +54,10 @@ async def get_practice_worksheet(worksheet_id: uuid.UUID, child: CurrentChild, d
 @router.post("/questions/{question_id}/answer", response_model=PracticeFeedback)
 async def submit_practice_answer(question_id: uuid.UUID, body: SubmitAnswerRequest, child: CurrentChild, db: Db) -> PracticeFeedback:
     return await exercise_service.submit_practice_answer(db, child, question_id, body.answer)
+
+
+@router.post("/questions/{question_id}/report", status_code=status.HTTP_204_NO_CONTENT)
+async def report_bad_question(question_id: uuid.UUID, body: ReportQuestionRequest, child: CurrentChild, db: Db) -> Response:
+    """Child flags an odd question after answering. Fixed reasons only, no free text."""
+    await report_service.report_question(db, child, question_id, body.reason)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

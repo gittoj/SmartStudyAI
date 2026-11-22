@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ChildPicker } from "@/components/ChildPicker";
 import { PracticeSession } from "@/components/PracticeSession";
 import {
@@ -9,6 +9,26 @@ import {
 import type { ChildProfile, ChildSummary, WorksheetSummary } from "@/lib/types";
 
 type View = "loading" | "picking" | "home" | "session";
+type Entry =
+  | { kind: "home"; child: ChildSummary; worksheets: WorksheetSummary[] }
+  | { kind: "picking"; children: ChildProfile[]; needsParent: boolean; message: string | null };
+
+/** Is a child already selected? A 401 means no: show the profile picker instead. Never throws. */
+async function fetchEntry(): Promise<Entry> {
+  let message: string | null = null;
+  try {
+    const child = await getPracticeMe();
+    return { kind: "home", child, worksheets: await listReadyWorksheets() };
+  } catch (error) {
+    if (!(error instanceof ApiError && error.status === 401)) message = errorMessage(error);
+  }
+  try {
+    return { kind: "picking", children: await listChildren(), needsParent: false, message };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) return { kind: "picking", children: [], needsParent: true, message };
+    return { kind: "picking", children: [], needsParent: false, message: errorMessage(error) };
+  }
+}
 
 export default function LearningPage() {
   const [view, setView] = useState<View>("loading");
@@ -19,27 +39,28 @@ export default function LearningPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [needsParent, setNeedsParent] = useState(false);
 
-  // Is a child already selected? 401 means no: show the profile picker instead.
-  const enter = useCallback(async () => {
-    try {
-      setChild(await getPracticeMe());
-      setWorksheets(await listReadyWorksheets());
+  function applyEntry(entry: Entry) {
+    if (entry.kind === "home") {
+      setChild(entry.child);
+      setWorksheets(entry.worksheets);
       setView("home");
       return;
-    } catch (error) {
-      if (!(error instanceof ApiError && error.status === 401)) setMessage(errorMessage(error));
     }
-    try {
-      setChildren(await listChildren());
-      setNeedsParent(false);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) setNeedsParent(true);
-      else setMessage(errorMessage(error));
-    }
+    setChildren(entry.children);
+    setNeedsParent(entry.needsParent);
+    if (entry.message) setMessage(entry.message);
     setView("picking");
-  }, []);
+  }
 
-  useEffect(() => { void enter(); }, [enter]);
+  async function enter() {
+    applyEntry(await fetchEntry());
+  }
+
+  useEffect(() => {
+    let active = true; // state is set only when the data arrives, never synchronously in the effect
+    fetchEntry().then((entry) => { if (active) applyEntry(entry); });
+    return () => { active = false; };    
+  }, []);
 
   async function handleSubmitPin(profile: ChildProfile, pin: string): Promise<string | null> {
     try {
@@ -65,7 +86,7 @@ export default function LearningPage() {
 
       {view === "picking" && (needsParent
         ? <div className="card"><p>Ask a grown-up to log in first.</p><Link className="button" href="/">Parent log in</Link></div>
-        : <ChildPicker children={children} onSubmitPin={handleSubmitPin} />)}
+        : <ChildPicker profiles={children} onSubmitPin={handleSubmitPin} />)}
 
       {view === "home" && child && (
         <>

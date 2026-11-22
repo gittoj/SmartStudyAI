@@ -29,10 +29,16 @@ export interface TopicProgress {
   childId: string; subject: Subject; level: Level; topic: string; mastery: Mastery;
   questionsAttempted: number; questionsCorrect: number; lastPractisedAt: string | null;
 }
+export type ReportReason = "answer_looks_wrong" | "dont_understand" | "something_else";
+export interface ReportedQuestion {
+  id: string; topic: string; prompt: string; choices: string[]; correctChoice: string; explanation: string;
+  reason: ReportReason; createdAt: string;
+}
 export interface ParentDashboard {
   child: Pick<ChildProfile, "id" | "username" | "level">;
   topics: TopicProgress[];
   recentWorksheets: DashboardWorksheet[];
+  reportedQuestions: ReportedQuestion[];
 }
 export interface WorksheetStatusResponse {
   id: string; status: WorksheetStatus; parentNote: string; failureReason?: FailureReason; canRetry: boolean;

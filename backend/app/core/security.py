@@ -40,3 +40,7 @@ def read_session(token: str, salt: str, max_age: int) -> dict[str, str] | None:
 def clear_cookie(response, name: str) -> None:
     """Delete a session cookie using the same attributes it was set with."""
     response.delete_cookie(name, secure=settings.cookie_secure, httponly=True, samesite="lax")
+
+
+# Checked when an email does not exist, so a missing account takes about as long as a wrong password.
+DUMMY_HASH = _hasher.hash("not-a-real-password")

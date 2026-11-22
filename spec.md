@@ -25,6 +25,8 @@ type WorksheetStatus =
 
 type Mastery = "not_started" | "needs_practice" | "developing" | "confident";
 
+type ReportReason = "answer_looks_wrong" | "dont_understand" | "something_else";
+
 interface ParentAccount {
   id: string;
   email: string;
@@ -113,12 +115,24 @@ interface TopicProgress {
   lastPractisedAt: string | null;
 }
 
+interface ReportedQuestion {
+  id: string;
+  topic: string;
+  prompt: string;
+  choices: string[];
+  correctChoice: string;
+  explanation: string;
+  reason: ReportReason;
+  createdAt: string;
+}
+
 interface ParentDashboard {
   child: Pick<ChildProfile, "id" | "username" | "level">;
   topics: TopicProgress[];
   recentWorksheets: Array<
-    Pick<WorksheetResult, "id" | "subject" | "topic" | "status" | "createdAt">
+    Pick<WorksheetResult, "id" | "subject" | "topic" | "status" | "createdAt" | "parentNote" | "failureReason">
   >;
+  reportedQuestions: ReportedQuestion[];
 }
 ```
 The frontend sends worksheet uploads using multipart/form-data. The file is sent as a binary file field, not as a JSON string. FastAPI receives it using UploadFile. The remaining fields (childId, subject, and optional topicHint) are sent as form fields.
@@ -135,6 +149,7 @@ Extracted worksheet text is an internal backend processing field. It must not be
 - A successful login sets an httpOnly parent session cookie. Uploads, child-profile changes, and the progress dashboard require this session.
 - Logging out clears the parent session and any selected child profile.
 - A parent session can read and change only its own children, worksheets, and progress.
+- Failed logins are limited to 10 per email and 20 per IP address in 15 minutes, and sign-ups to 10 per IP address per hour. Beyond that the API returns 429: 'Too many tries. Please wait a few minutes and try again.' A successful login resets that email's count.
 
 ### Child profile
 
@@ -184,10 +199,13 @@ If validation fails, do not store the file and do not call PyMuPDF, the OCR serv
    - P4: still simple, with one extra step in the worked example.
 7. Produce one worked example from the same topic, using new numbers or a new short passage. Do not copy a question from the uploaded page.
 8. Produce five multiple-choice questions. Each question has exactly four choices, and `expectedAnswer` is one of those choices. Include a one- or two-sentence explanation. Do not ask the child to type an answer. Written-answer questions belong in a later version. Use new numbers or a new short passage. Do not copy a question from the uploaded page.
-9. Set status to `ready`. Explanations, the worked example, and practice questions come from one OpenAI call on the FastAPI service. If that call fails or times out after 60 seconds, set status to `failed`, keep the file, and show: "We could not prepare this worksheet. Try again." The parent may retry once from the same file. A second failure keeps status `failed` and does not retry automatically. Reuse extracted text on retry. Do not send the file to PyMuPDF or OCR again unless extraction itself failed.
+9. Set status to `ready`. Explanations, the worked example and practice questions come from one OpenAI request. If the reply breaks a rule (not valid JSON, wrong question count, a question without four different choices, a correct answer not among the choices, or a question that reuses the worked example), the service asks once more, telling the model why the first reply was rejected. Timeouts and API errors are not regenerated. If the second reply is also invalid, or any call fails or times out after 60 seconds (45 seconds for the second request), set status to failed, keep the file, and show: "We could not prepare this worksheet. Try again." The parent may retry once from the same file.  
+10. A worksheet still uploaded or processing after 15 minutes (for example, the server restarted) is set to failed with the standard failed message. A background check runs when the server starts and every 5 minutes.
+11. The parent can remove a failed or needs_review worksheet. This deletes its file and record. ready worksheets cannot be removed.
 
 ### Practice and feedback
 
+- Invalid questions trigger the automatic regeneration above before the worksheet is set to failed.
 - V1 practice is multiple choice only. A question without exactly four choices, or whose correct answer is not one of those choices, is invalid. If the five questions are not all valid, set the worksheet to `failed` and do not show a partial set.
 - Show one question at a time. Hide `expectedAnswer` and `explanation` until the child submits.
 - The child submits one of the four choices. A submission that is not one of those choices is rejected with "Choose an answer first." and is not stored.
@@ -201,6 +219,8 @@ If validation fails, do not store the file and do not call PyMuPDF, the OCR serv
   - `developing`: 50%–79% correct but does not yet meet the `confident` criteria
   - `confident`: 80% or more correct, with at least 5 attempts
 - A new worksheet on the same topic does not reset mastery. New attempts are added to the same topic.
+- After answering, the child can tap 'This question looks odd' and pick one of: the answer doesn't look right, I don't understand it, something else. There is no free text. Only answered questions can be reported, and repeating a report changes nothing.
+- A reported question is left out of mastery and attempt counts at once. The parent sees it under 'Questions to check', with the prompt, choices, marked answer, explanation and reason. The parent chooses 'It's wrong, hide it' (stays excluded) or 'It's fine, count it' (counts again). Only that child's parent can resolve it.
 
 ### Parent dashboard
 
@@ -224,7 +244,7 @@ If validation fails, do not store the file and do not call PyMuPDF, the OCR serv
 
 ### Tech stack
 
-- Frontend: Next.js 14 (App Router) and TypeScript in strict mode. The browser does not call the database, OpenAI, PyMuPDF, or the OCR service.
+- Frontend: Next.js 16 (App Router) with React 19 and TypeScript in strict mode. The browser does not call the database, OpenAI, PyMuPDF, or the OCR service.
 - Backend API: Python and FastAPI. Parent login, child profiles, uploads, worksheet status, practice, and the parent dashboard are FastAPI routes.
 - Database: PostgreSQL for parent accounts, child profiles, worksheet records, attempts, and topic progress. Each child's username is unique within the parent's account.
 - AI service: The OpenAI API is called only from FastAPI to generate the explanation, worked example, and five multiple-choice questions. Practice feedback is generated by the backend using the stored answer key and explanation. Submitting an answer does not trigger another OpenAI call.
@@ -265,9 +285,10 @@ If validation fails, do not store the file and do not call PyMuPDF, the OCR serv
 - The session is associated with the authenticated parent and selected child.
 - The child can access only their own ready worksheets and practice questions.
 - The child session cannot access parent dashboard or account-management functions.
-- Parent and child sessions must be separate.
+- Parent and child sessions are separate and never active together. A correct PIN ends the parent session on that browser (the parent area is locked), and a parent login ends any child session. The parent must log in again to reach the dashboard or uploads.
 - Logging out clears the relevant session cookie.
-- selecting a child ends the parent session on that device, and parent login ends the child session
+- selecting a child ends the parent session on that device, and parent login ends the child session.
+- Rate-limit records store only keyed hashes of the email or IP address and are deleted after 24 hours.
 
 ### Coding style
 
@@ -294,3 +315,6 @@ If validation fails, do not store the file and do not call PyMuPDF, the OCR serv
 12. Stored files, logs, and API responses contain no password, PIN, OpenAI API key, OCR credential, or `expectedAnswer` before the child submits.
 13. Dashboard and practice pages load from PostgreSQL through FastAPI and do not wait on OpenAI, PyMuPDF, or the OCR service.
 14. With no child, no worksheet, or a worksheet still processing, the screen shows the fallback copy in Behavior Rules instead of a blank page.
+15. A second invalid AI reply, not the first, is what sends a worksheet to failed.
+16. After repeated failed logins the API returns 429, and a correct password does not bypass it during the window.
+17. A reported question is excluded from progress until the parent dismisses the report, and another parent cannot see or resolve it.

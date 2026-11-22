@@ -1,4 +1,5 @@
 import type {
+  ReportReason,
   ChildProfile, ChildSummary, CreateChildRequest, ParentAccount, ParentDashboard, PracticeFeedback,
   WorksheetResult, WorksheetStatusResponse, WorksheetSummary,
 } from "./types";
@@ -73,6 +74,10 @@ export const listReadyWorksheets = () => request<WorksheetSummary[]>("/api/pract
 export const getPracticeWorksheet = (id: string) => request<WorksheetResult>(`/api/practice/worksheets/${id}`);
 export const submitPracticeAnswer = (questionId: string, answer: string) =>
   request<PracticeFeedback>(`/api/practice/questions/${questionId}/answer`, json("POST", { answer }));
+export const reportQuestion = (questionId: string, reason: ReportReason) =>
+  request<void>(`/api/practice/questions/${questionId}/report`, json("POST", { reason }));
+export const resolveReport = (childId: string, reportId: string, resolution: "confirmed" | "dismissed") =>
+  request<void>(`/api/dashboard/${childId}/reports/${reportId}`, json("POST", { resolution }));
 export const getPracticeMe = () => request<ChildSummary>("/api/practice/me");
 export const childLogout = () => request<void>("/api/children/session/logout", { method: "POST" });
 export const removeWorksheet = (id: string) => request<void>(`/api/worksheets/${id}`, { method: "DELETE" });
