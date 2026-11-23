@@ -1,0 +1,91 @@
+# Checks every push to main and every pull request. No secrets are needed:
+# backend tests use in-memory SQLite and mock OpenAI; the frontend build needs no backend.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the older, still-running check.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.5" # same uv as the Dockerfile
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install Python and dependencies
+        run: uv sync --frozen # Python version comes from backend/.python-version
+
+      - name: Check Python syntax
+        run: uv run python -m compileall -q app
+
+      - name: Run tests
+        run: uv run pytest -v
+
+  frontend:
+    name: Frontend lint and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: / # same value as production on Vercel
+
+  docker:
+    name: Backend Docker image builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build image (not pushed anywhere)
+        run: docker build -t smartstudy-backend:ci backend
+
+      - name: Smoke test the image
+        run: |
+          docker run --rm \
+            -e "DATABASE_URL=postgresql://ci:ci@db.invalid/ci?sslmode=require" \
+            -e SESSION_SECRET=ci-only \
+            smartstudy-backend:ci \
+            sh -c "tesseract --version | head -1 && python -W ignore -c 'import app.main; print(\"app imports ok\")'"
