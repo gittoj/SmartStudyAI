@@ -73,7 +73,7 @@ Two background tasks run while the server is up:
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 16 (App Router), React 19, TypeScript (strict) |
+| Frontend | Next.js 16 (App Router), React 19, TypeScript (strict), Vercel Web Analytics |
 | Backend | Python 3.13, FastAPI, Pydantic v2, SQLAlchemy 2 (async) with asyncpg |
 | Database | PostgreSQL, migrations with Alembic. Worksheet files are stored in the `stored_files` table. |
 | AI | OpenAI API (default model `gpt-4o-mini`) |
@@ -273,6 +273,8 @@ Migrations run automatically each time the container starts (`alembic upgrade he
 ### 3. Vercel (frontend)
 Import the repo with **Root Directory** set to `frontend`, and set `NEXT_PUBLIC_API_URL=/`, `BACKEND_URL` and `PROXY_SHARED_SECRET` (see [Configuration](#configuration)).
 
+To see page views, open the project's **Analytics** tab, click **Enable**, then redeploy. Analytics records nothing on localhost.
+
 ### 4. Smoke test
 - Register, log in, add a child, select the child with their PIN, and practise.
 - Upload a worksheet, wait for it to show as ready, then check the dashboard.
@@ -317,6 +319,7 @@ uv run alembic upgrade head
 - **Upload validation.** The file type is detected from the file's bytes, not trusted from its extension. Size and page limits are checked before any processing.
 - **Private files.** Worksheet files are never returned by the API. Files of `failed` and `needs_review` worksheets are deleted after 7 days.
 - **Minimal data.** Children are identified only by a username and level. Worksheet text goes to OpenAI and, if enabled, the OCR provider. It is not sent to any analytics or logging service.
+- **Analytics.** Vercel Web Analytics records cookieless page views of fixed paths only, such as `/dashboard`. Don't add custom events, and don't put child, worksheet or answer data in URLs.
 
 ## Scope
 

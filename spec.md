@@ -262,6 +262,7 @@ If validation fails, do not store the file and do not call PyMuPDF, the OCR serv
 - Do not add a UI component kit or a client state-management library unless a later spec says to.
 - Do not call OpenAI, PyMuPDF, or the OCR service from Next.js. The OpenAI API key and the OCR credentials stay in FastAPI environment variables.
 - Do not send worksheet text, child names, or answers to an analytics or logging product. OpenAI and the OCR service are the only outside processors of worksheet text.
+- The frontend uses Vercel Web Analytics (`@vercel/analytics`) for page views only. It sets no cookies and records only fixed page paths such as `/dashboard`, which contain no IDs or names. Do not add custom analytics events, and do not put child, worksheet or answer data in page URLs.
 
 ### Performance
 
