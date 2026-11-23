@@ -4,7 +4,8 @@ import type {
   WorksheetResult, WorksheetStatusResponse, WorksheetSummary,
 } from "./types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// "/" means same-origin: requests go to this site's /api/*, which proxy.ts forwards to the backend.
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/+$/, "");
 const GENERIC = "Something went wrong. Please try again.";
 
 export class ApiError extends Error {

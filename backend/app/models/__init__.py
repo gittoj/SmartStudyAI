@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -119,4 +119,13 @@ class QuestionReport(Base):
     worksheet_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("worksheets.id", ondelete="CASCADE"))
     reason: Mapped[str] = mapped_column(String(24))
     status: Mapped[str] = mapped_column(String(12), default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class StoredFile(Base):
+    """Private worksheet file bytes, addressed by a server-generated storage key.
+    Kept in Postgres so the backend needs no persistent disk. Never returned by the API."""
+    __tablename__ = "stored_files"
+    key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

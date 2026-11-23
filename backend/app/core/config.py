@@ -1,8 +1,29 @@
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
+
+# libpq options that hosts such as Neon put in their URLs but asyncpg does not accept.
+_UNSUPPORTED_ASYNCPG_OPTIONS = {"channel_binding"}
+
+
+def normalize_database_url(url: str) -> str:
+    """Accept a plain Postgres URL as a host hands it out and make it usable by SQLAlchemy + asyncpg.
+
+    postgres:// and postgresql:// become postgresql+asyncpg://, `sslmode=` becomes asyncpg's `ssl=`,
+    and libpq-only options are dropped. Other URLs (for example sqlite in tests) are left alone."""
+    parts = urlsplit(url.strip())
+    if parts.scheme not in ("postgres", "postgresql", "postgresql+asyncpg"):
+        return url
+    query = []
+    for name, value in parse_qsl(parts.query, keep_blank_values=True):
+        if name in _UNSUPPORTED_ASYNCPG_OPTIONS:
+            continue
+        query.append(("ssl" if name == "sslmode" else name, value))
+    return urlunsplit(parts._replace(scheme="postgresql+asyncpg", query=urlencode(query)))
 
 
 class Settings(BaseSettings):
@@ -37,6 +58,14 @@ class Settings(BaseSettings):
     # unless a trusted proxy overwrites it: otherwise anyone could fake it and dodge the limits.
     trust_proxy_header: str = ""
     max_prompt_chars: int = 12000
+    # When set, every request except /health must carry this value in the X-Proxy-Secret header.
+    # The Next.js proxy adds it, so the backend only answers traffic that came through the frontend.
+    proxy_shared_secret: str = ""
+
+    @field_validator("database_url")
+    @classmethod
+    def _normalize_database_url(cls, value: str) -> str:
+        return normalize_database_url(value)
 
     @property
     def cors_origin_list(self) -> list[str]:

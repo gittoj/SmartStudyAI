@@ -3,6 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile, status
 
+from app.core.config import settings
 from app.core.deps import CurrentParent, Db, get_owned_child
 from app.models import Child, Worksheet
 from app.schemas import Subject, WorksheetStatusResponse
@@ -22,7 +23,7 @@ async def upload_worksheet(
 ) -> dict[str, str]:
     """Parent only. Validation failures store nothing and call no external service."""
     child = await get_owned_child(child_id, db, parent)
-    data = await file.read(10 * 1024 * 1024 + 1)
+    data = await file.read(settings.max_upload_bytes + 1)
     try:
         validate_upload(file.filename or "", data)
         worksheet_id = await worksheet_service.create_worksheet(

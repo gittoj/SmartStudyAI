@@ -4,7 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import settings
 
-engine = create_async_engine(settings.database_url)
+# pre_ping replaces connections the database dropped while idle (Neon suspends its compute when quiet).
+engine = create_async_engine(settings.database_url, pool_pre_ping=True, pool_recycle=300)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
